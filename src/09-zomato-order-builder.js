@@ -38,13 +38,69 @@
  *
  * @example
  *   buildZomatoOrder([{ name: "Biryani", price: 300, qty: 1, addons: ["Raita:30"] }], "FLAT100")
- *   // subtotal: 330, deliveryFee: 30, gst: 16.5, discount: 100
- *   // grandTotal: 330 + 30 + 16.5 - 100 = 276.5
+//  *   // subtotal: 330, deliveryFee: 30, gst: 16.5, discount: 100
+//  *   // grandTotal: 330 + 30 + 16.5 - 100 = 276.5
  *
  *   buildZomatoOrder([{ name: "Pizza", price: 500, qty: 2, addons: [] }], "FIRST50")
- *   // subtotal: 1000, deliveryFee: 0, gst: 50, discount: min(500, 150) = 150
- *   // grandTotal: 1000 + 0 + 50 - 150 = 900
+//  *   // subtotal: 1000, deliveryFee: 0, gst: 50, discount: min(500, 150) = 150
+//  *   // grandTotal: 1000 + 0 + 50 - 150 = 900
  */
 export function buildZomatoOrder(cart, coupon) {
-  // Your code here
+  if (!Array.isArray(cart) || cart.length === 0) return null;
+
+  const items = cart.filter(item => item.qty > 0).map(item => {
+
+    const addonTotal = (item.addons || []).reduce((total, addon) => {
+      //raita:20 ---> split[raita, 20] ---> select the first index
+      const price = Number(addon.split(":")[1]) || 0;
+
+
+      return total + price;
+    }, 0)
+
+    const itemTotal = (item.price + addonTotal) * item.qty;
+
+    return {
+      name: item.name,
+      qty: item.qty,
+      basePrice: item.price,
+      addonTotal,
+      itemTotal
+    }
+  })
+
+  const subtotal = items.reduce((total, item) => total + item.itemTotal, 0);
+
+  let deliveryFee;
+
+  if (subtotal < 500) { deliveryFee = 30; }
+  else if (subtotal < 1000) { deliveryFee = 15; }
+  else { deliveryFee = 0; }
+
+  const gst = parseFloat(((5 / 100) * subtotal).toFixed(2));
+
+  let discount = 0;
+  const couponCode = typeof coupon === 'string' ? coupon.toUpperCase() : '';
+
+  if (couponCode === 'FIRST50') {
+    discount = Math.min(150, (50 / 100) * subtotal);
+  } else if (couponCode === 'FLAT100') {
+    discount = 100;
+  } else if (couponCode === 'FREESHIP') {
+    discount = deliveryFee;
+    deliveryFee = 0;
+  }
+
+  const grandTotal = parseFloat(
+    Math.max(0, subtotal + deliveryFee + gst - discount).toFixed(2)
+  );
+
+  return {
+    items,
+    subtotal,
+    deliveryFee,
+    gst,
+    discount,
+    grandTotal
+  }
 }
